@@ -22,9 +22,11 @@ The `||` values concatenate the columns into strings.
 Edit the appropriate columns -- you're making two edits -- and the NULL rows will be fixed. 
 All the other rows will remain the same. */
 --QUERY 1
-
-
-
+SELECT
+product_name || ', ' || product_size|| ' (' || product_qty_type || ')' as original, -- remove when done
+product_name || ', ' || coalesce(product_size, '') || ' ' || 
+'('|| coalesce(product_qty_type, 'unit') ||')' as remove_nulls
+FROM product;
 
 --END QUERY
 
@@ -40,9 +42,19 @@ each new market date for each customer, or select only the unique market dates p
 HINT: One of these approaches uses ROW_NUMBER() and one uses DENSE_RANK(). 
 Filter the visits to dates before April 29, 2022. */
 --QUERY 2
+-- if a table exists, delete it, other do NOTHING
+DROP TABLE IF EXISTS temp.unique_visits;
+--make the table
+CREATE TABLE temp.unique_visits AS
+-- select unique market dates per customer
+SELECT DISTINCT customer_id, market_date
+FROM customer_purchases
+ORDER BY customer_id ASC;
 
-
-
+SELECT *,
+row_number() OVER(PARTITION BY customer_id ORDER BY market_date ASC) as [visit]
+FROM temp.unique_visits
+WHERE market_date < '2022-04-29';
 
 --END QUERY
 
@@ -52,9 +64,15 @@ then write another query that uses this one as a subquery (or temp table) and fi
 only the customer’s most recent visit.
 HINT: Do not use the previous visit dates filter. */
 --QUERY 3
-
-
-
+WITH recent_visit AS 
+(
+	SELECT *,
+	row_number() OVER(PARTITION BY customer_id ORDER BY market_date DESC) as [visits]
+	FROM temp.unique_visits
+)
+SELECT *
+FROM recent_visit
+WHERE visits = 1;
 
 --END QUERY
 
@@ -66,8 +84,10 @@ You can make this a running count by including an ORDER BY within the PARTITION 
 Filter the visits to dates before April 29, 2022. */
 --QUERY 4
 
-
-
+SELECT *,
+COUNT() OVER (PARTITION BY customer_id, product_id ORDER BY market_date ASC) as bought_product
+FROM customer_purchases
+WHERE market_date < '2022-04-29';
 
 --END QUERY
 
@@ -84,18 +104,25 @@ Remove any trailing or leading whitespaces. Don't just use a case statement for 
 
 Hint: you might need to use INSTR(product_name,'-') to find the hyphens. INSTR will help split the column. */
 --QUERY 5
-
-
-
+SELECT *,
+CASE WHEN product_name LIKE '%-%'
+	THEN rtrim(ltrim(substr(product_name, instr(product_name, '-')+2)))
+	ELSE NULL
+	END as description
+FROM product;
 
 --END QUERY
 
 
 /* 2. Filter the query to show any product_size value that contain a number with REGEXP. */
 --QUERY 6
-
-
-
+SELECT *,
+CASE WHEN product_name LIKE '%-%'
+	THEN rtrim(ltrim(substr(product_name, instr(product_name, '-')+2)))
+	ELSE NULL
+	END as description
+FROM product
+WHERE product_size glob '*[0-9]*';
 
 --END QUERY
 
@@ -110,9 +137,34 @@ HINT: There are a possibly a few ways to do this query, but if you're struggling
 3) Query the second temp table twice, once for the best day, once for the worst day, 
 with a UNION binding them. */
 --QUERY 7
+DROP TABLE IF EXISTS temp.market_sales;
+--make temporary table calculating total sales
+CREATE TABLE temp.market_sales AS
+SELECT *
+,SUM(quantity * cost_to_customer_per_qty) AS total_sales
+FROM customer_purchases
+GROUP BY market_date;
 
+-- order by highest and lowest sales rank, combining with union 
+SELECT market_date, total_sales 
+FROM
+	(
+	SELECT * 
+	,rank() OVER(ORDER BY total_sales ASC) as [sales_rank]
+	FROM temp.market_sales
+	)
+WHERE sales_rank = 1
 
+UNION
 
+SELECT market_date, total_sales  
+FROM
+	(
+	SELECT * 
+	,rank() OVER(ORDER BY total_sales DESC) as [sales_rank]
+	FROM temp.market_sales
+	)
+WHERE sales_rank = 1;
 
 --END QUERY
 
@@ -131,10 +183,25 @@ Think a bit about the row counts: how many distinct vendors, product names are t
 How many customers are there (y). 
 Before your final group by you should have the product of those two queries (x*y).  */
 --QUERY 8
+DROP TABLE IF EXISTS temp.vendor_sales;
+--make temporary table calculating total sales
+CREATE TABLE temp.vendor_sales AS
+SELECT * 
+FROM
+	(
+	SELECT DISTINCT vi.vendor_id, vi.product_id, original_price, product_name, vendor_name
+	FROM vendor_inventory as vi
+	LEFT JOIN product as p
+		ON vi.product_id = p.product_id
+	LEFT JOIN vendor as v
+		ON vi.vendor_id = v.vendor_id
+	)
+CROSS JOIN customer; 
 
-
-
-
+-- sum up sales
+SELECT vendor_name, product_name, sum(original_price * 5) as total_sales
+FROM temp.vendor_sales
+GROUP BY vendor_id, product_id;
 --END QUERY
 
 
@@ -144,9 +211,11 @@ This table will contain only products where the `product_qty_type = 'unit'`.
 It should use all of the columns from the product table, as well as a new column for the `CURRENT_TIMESTAMP`.  
 Name the timestamp column `snapshot_timestamp`. */
 --QUERY 9
-
-
-
+DROP TABLE IF EXISTS product_units;
+CREATE TABLE product_units AS
+	SELECT *, CURRENT_TIMESTAMP as snapshot_timestamp 
+	FROM product
+	WHERE product_qty_type = 'unit';
 
 --END QUERY
 
@@ -154,9 +223,8 @@ Name the timestamp column `snapshot_timestamp`. */
 /*2. Using `INSERT`, add a new row to the product_units table (with an updated timestamp). 
 This can be any product you desire (e.g. add another record for Apple Pie). */
 --QUERY 10
-
-
-
+INSERT INTO product_units
+VALUES(24, 'Banana', 'bunch', 1, 'unit', CURRENT_TIMESTAMP);
 
 --END QUERY
 
@@ -166,9 +234,8 @@ This can be any product you desire (e.g. add another record for Apple Pie). */
 
 HINT: If you don't specify a WHERE clause, you are going to have a bad time.*/
 --QUERY 11
-
-
-
+DELETE FROM product_units
+WHERE product_id = 24;
 
 --END QUERY
 
@@ -190,10 +257,28 @@ Finally, make sure you have a WHERE statement to update the right row,
 	you'll need to use product_units.product_id to refer to the correct row within the product_units table. 
 When you have all of these components, you can run the update statement. */
 --QUERY 12
+--TODO, works but feels janky
+ALTER TABLE product_units
+ADD current_quantity INT;
 
+DROP TABLE IF EXISTS temp.quantity_table;
+CREATE TABLE temp.quantity_table AS
+SELECT *, 
+max(market_date) as lastest_date
+FROM vendor_inventory as vi
+GROUP BY product_id;
 
+DROP TABLE IF EXISTS temp.joined_table;
+CREATE TABLE temp.joined_table AS
+SELECT *, coalesce(quantity, '0') as quantity_updated
+FROM product_units as pu
+LEFT JOIN temp.quantity_table as qt
+	ON pu.product_id = qt.product_id;
 
-
+UPDATE product_units
+SET current_quantity = temp.joined_table.quantity_updated
+FROM temp.joined_table
+WHERE temp.joined_table.product_id = product_units.product_id;
 --END QUERY
 
 

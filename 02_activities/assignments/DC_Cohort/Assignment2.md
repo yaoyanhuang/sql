@@ -14,10 +14,10 @@
     * Open a private window in your browser. Copy and paste the link to your pull request into the address bar. Make sure you can see your pull request properly. This helps the technical facilitator and learning support staff review your submission easily.
 
 Checklist:
-- [ ] Create a branch called `assignment-two`.
-- [ ] Ensure that the repository is public.
-- [ ] Review [the PR description guidelines](https://github.com/UofT-DSI/onboarding/blob/main/onboarding_documents/submissions.md#guidelines-for-pull-request-descriptions) and adhere to them.
-- [ ] Verify that the link is accessible in a private browser window.
+- [x] Create a branch called `assignment-two`.
+- [x] Ensure that the repository is public.
+- [x] Review [the PR description guidelines](https://github.com/UofT-DSI/onboarding/blob/main/onboarding_documents/submissions.md#guidelines-for-pull-request-descriptions) and adhere to them.
+- [x] Verify that the link is accessible in a private browser window.
 
 If you encounter any difficulties or have questions, please don't hesitate to reach out to our team via our Slack. Our Technical Facilitators and Learning Support staff are here to help you navigate any challenges.
 
@@ -56,7 +56,10 @@ The store wants to keep customer addresses. Propose two architectures for the CU
 **HINT:** search type 1 vs type 2 slowly changing dimensions. 
 
 ```
-Your answer...
+Type 1 will overwrite the changes. Customer_address table will have columns for foreign key customer_id which is in a 1-many relationship with the customer table, where each customer can have many addresses. The table can also have a primary key address_id. The other columns contain the address information like unit, street, city, country, postal_code, and address_type like mailing address or billing address. When addresses are changed, the information is directly changed in the customer_address table.
+
+Type 2 will retain changes. This is useful if multiple addresses need to be kept for whatever case, such as 
+audit trails, verification of new address or tracking how well customers are retained by distance. In this case, new columns of valid_from, valid_to, is_current set to True will be used to implement tracking by date. When an address is changed, a new address is added to the table and the old address will update the valid_to as the new date and is_current as False. 
 ```
 
 ***
@@ -191,5 +194,7 @@ Consider, for example, concepts of labour, bias, LLM proliferation, moderating c
 
 
 ```
-Your thoughts...
+This story highlights the ways bias can be a part of large language models and other AI technology from multiple stages in the development. ImageNet was tagged by people using Mechanical Turk on top of language classification systems built by newspaper clippings in the 1960s. As the article discusses, each stage requires human decision making. What words count as synonyms? What photos of considered “scary” or “kind” or “dirty”? All of this is also from a very Western centric thinking. In additional to a cultural bias, other forms are also present. From the 2019 article by Professor Li Fei-Fei’s group they note that gender bias is present when using occupations as keywords. For example, using the word banker, they get an exaggerated gender ratio, and bias can also be introduced during the cleanup stage. Skin colour and age were also notable, with less dark-skinned people and less young people. Not only is bias a part of the technology, but they can also contribute to further bias when used. We can see these impacts in driverless car technology where the pedestrian detection system has higher detection accuracy for adults over children, and light-skinned pedestrians over darker-skinned counterparts. Bias in the technology we use can further support systemic inequalities.
+
+It also raises questions about labour rights. Many times, graduate students were listed as workers who may not have received fair compensation for their work. The tagging of ImageNet was completed by workers on Amazon’s Mechanical Turk, a crowdsourcing marketplace run by Amazon Web Services (AWS) that enables individuals (Workers) to complete microtasks—or Human Intelligence Tasks (HITs)—for businesses (Requesters). Many have criticized this program for underpaying workers. A New York Times article by Andy Newman in 2019 called “I Found Work on an Amazon Website. I made 97 cents an hour.” highlights the authors own experience and research that has found that the median hourly wage was $1.77. The article reports how Amazon has ignored please for higher wages and also takes a cut of each transaction between 17-50%. This type of crowdwork is unregulated, underpaid, and may expose workers to harmful conditions. This was the case for Facebook’s content moderators, who review content against its community guidelines. This could include exposure to live-streamed footage of murder, rape, images of child pornography and other content that could lead to psychological trauma. This problem is not limited to Facebook, but other moderators and when tagging media for AI models.
 ```
